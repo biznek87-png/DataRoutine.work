@@ -8,6 +8,10 @@ app.use(express.json({ limit: '5mb' }));
 // API Secret из переменных окружения Render
 const API_SECRET = process.env.API_SECRET || 'apa-secret-2026-xyz';
 
+// Путь к Chrome-headless-shell на Render (из Build Logs)
+const CHROME_PATH = process.env.PUPPETEER_EXECUTABLE_PATH || 
+    '/tmp/puppeteer/chrome-headless-shell/linux-121.0.6167.85/chrome-headless-shell-linux64/chrome-headless-shell';
+
 // Защита от чужих запросов
 app.use((req, res, next) => {
     if (req.path === '/health') return next(); // healthcheck без авторизации
@@ -31,6 +35,7 @@ app.post('/render', async (req, res) => {
     try {
         browser = await puppeteer.launch({
             headless: 'new',
+            executablePath: CHROME_PATH, // <-- ЯВНЫЙ ПУТЬ К CHROME
             args: [
                 '--no-sandbox',
                 '--disable-setuid-sandbox',
@@ -125,4 +130,5 @@ app.get('/health', (req, res) => {
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
     console.log(`APA Renderer running on port ${PORT}`);
+    console.log(`Chrome path: ${CHROME_PATH}`);
 });
