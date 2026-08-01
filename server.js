@@ -14,7 +14,7 @@ app.use((req, res, next) => {
 });
 
 app.post('/render', async (req, res) => {
-    const { html, width = 1200, quality = 85 } = req.body;
+    const { html, width = 1200 } = req.body;
     if (!html) return res.status(400).json({ error: 'HTML is required' });
 
     let browser;
@@ -44,12 +44,7 @@ h2{margin-top:0;color:#2c3e50}
         const bodyHeight = await page.evaluate(() => document.body.scrollHeight);
         await page.setViewportSize({ width: parseInt(width), height: bodyHeight + 40 });
 
-        const screenshot = await page.screenshot({ 
-            type: 'png',
-            fullPage: true 
-        });
-
-        // Конвертируем PNG → WebP через sharp (если установим) или отправляем PNG
+        const screenshot = await page.screenshot({ type: 'png', fullPage: true });
         res.type('image/png').send(screenshot);
 
     } catch (err) {
@@ -61,8 +56,8 @@ h2{margin-top:0;color:#2c3e50}
 });
 
 app.get('/health', (req, res) => {
-    res.json({ status: 'ok', service: 'apa-renderer-playwright', timestamp: new Date().toISOString() });
+    res.json({ status: 'ok', service: 'DataRoutine-renderer', timestamp: new Date().toISOString() });
 });
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`APA Renderer on port ${PORT}`));
+app.listen(PORT, () => console.log(`DataRoutine Renderer on port ${PORT}`));
