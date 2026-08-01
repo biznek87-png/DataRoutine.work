@@ -4,7 +4,8 @@
   "description": "APA WebP renderer for DataRoutine.work",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js"
+    "start": "node server.js",
+    "postinstall": "npx puppeteer browsers install chrome-headless-shell"
   },
   "dependencies": {
     "express": "^4.18.2",
