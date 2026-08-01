@@ -1,12 +1,44 @@
 const express = require('express');
 const puppeteer = require('puppeteer');
+const fs = require('fs');
+const path = require('path');
 const app = express();
 
-// Разрешаем большие JSON (HTML таблицы могут быть большими)
+// Разрешаем большие JSON
 app.use(express.json({ limit: '5mb' }));
 
-// API Secret из переменных окружения Render
 const API_SECRET = process.env.API_SECRET || 'apa-secret-2026-xyz';
+
+// Находим Chrome-headless-shell динамически в папке проекта
+function findChromeExecutable() {
+    const searchDirs = [
+        path.join(__dirname, '.cache', 'puppeteer'),
+        path.join(__dirname, 'node_modules', 'puppeteer', '.local-chromium'),
+        '/opt/render/project/src/.cache/puppeteer',
+        '/opt/render/.cache/puppeteer',
+    ];
+    
+    for (const dir of searchDirs) {
+        if (!fs.existsSync(dir)) continue;
+        try {
+            const files = fs.readdirSync(dir, { recursive: true });
+            const chromeFile = files.find(f => 
+                typeof f === 'string' && 
+                f.includes('chrome-headless-shell') && 
+                !f.endsWith('.zip') &&
+                !f.includes('.tar')
+            );
+            if (chromeFile) {
+                const fullPath = path.join(dir, chromeFile);
+                if (fs.existsSync(fullPath)) return fullPath;
+            }
+        } catch (e) {}
+    }
+    return null;
+}
+
+const CHROME_PATH = findChromeExecutable();
+console.log('Chrome found at:', CHROME_PATH || 'NOT FOUND - will use default');
 
 // Защита от чужих запросов
 app.use((req, res, next) => {
@@ -19,7 +51,7 @@ app.use((req, res, next) => {
     next();
 });
 
-// Главный endpoint: получает HTML, возвращает WebP скриншот
+// Главный endpoint
 app.post('/render', async (req, res) => {
     const { html, width = 1200, quality = 85 } = req.body;
     
@@ -29,8 +61,7 @@ app.post('/render', async (req, res) => {
 
     let browser;
     try {
-        // Puppeteer сам найдёт chrome-headless-shell внутри node_modules
-        browser = await puppeteer.launch({
+        const launchOptions = {
             headless: 'new',
             args: [
                 '--no-sandbox',
@@ -44,12 +75,18 @@ app.post('/render', async (req, res) => {
                 '--disable-backgrounding-occluded-windows',
                 '--disable-renderer-backgrounding'
             ]
-        });
+        };
+
+        // Если нашли Chrome явно — используем его
+        if (CHROME_PATH) {
+            launchOptions.executablePath = CHROME_PATH;
+        }
+
+        browser = await puppeteer.launch(launchOptions);
 
         const page = await browser.newPage();
         await page.setViewport({ width: parseInt(width), height: 800 });
 
-        // Вставляем HTML с базовыми стилями для таблиц
         const fullHtml = `<!DOCTYPE html>
 <html>
 <head>
@@ -102,11 +139,9 @@ app.post('/render', async (req, res) => {
 
         await page.setContent(fullHtml, { waitUntil: 'networkidle0' });
         
-        // Подстраиваем высоту под контент
         const bodyHeight = await page.evaluate(() => document.body.scrollHeight);
         await page.setViewport({ width: parseInt(width), height: bodyHeight + 40 });
 
-        // Делаем скриншот сразу в WebP
         const screenshot = await page.screenshot({
             type: 'webp',
             quality: parseInt(quality),
@@ -123,12 +158,13 @@ app.post('/render', async (req, res) => {
     }
 });
 
-// Healthcheck для Render
+// Healthcheck
 app.get('/health', (req, res) => {
     res.json({ 
         status: 'ok', 
         service: 'apa-renderer',
-        chrome: puppeteer.executablePath(),
+        chrome_found: !!CHROME_PATH,
+        chrome_path: CHROME_PATH,
         timestamp: new Date().toISOString() 
     });
 });
@@ -136,5 +172,5 @@ app.get('/health', (req, res) => {
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
     console.log(`APA Renderer running on port ${PORT}`);
-    console.log(`Chrome executable: ${puppeteer.executablePath()}`);
+    console.log(`Chrome found: ${CHROME_PATH || 'NOT FOUND'}`);
 });
