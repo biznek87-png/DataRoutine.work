@@ -1,0 +1,13 @@
+{
+  "name": "apa-renderer",
+  "version": "1.0.0",
+  "description": "APA WebP renderer for DataRoutine.work",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "puppeteer": "^21.0.0"
+  }
+}
